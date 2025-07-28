@@ -1,0 +1,138 @@
+//Importing DHT library for sensor and defining port and intial values.
+#include <DHT.h>
+const int T = A0;
+const int swi = A1;
+const int H = A2;
+DHT dht(6, DHT22);
+int pos;
+float humid;
+float setTemp = 55;
+float setHumid = 50;
+float tempC;
+float tempF;
+bool set1 = false;
+bool set2 = false;
+
+void setup() {
+  //Setting pins 2 and 3 to be HIGH and LOW output signals to control fridge compressor and humidifier
+  //Subject to addition of dehumidifier
+  pinMode(2,OUTPUT);
+  pinMode(3,OUTPUT);
+  Serial.begin(115200);
+  dht.begin();
+  //Allowing user to set intial temperature according to joystick motion.
+  while(set1 == false) {
+      Serial.print("Set Temp: ");
+      Serial.println(setTemp);
+      int setter = analogRead(swi);
+      int tempCon =analogRead(T);
+      if(tempCon < 400) {
+        setTemp--;
+      }
+      else if(tempCon > 700) {
+        setTemp++;
+      }
+      if(setter == 0) {
+        set1 = true;
+      }
+      delay(500);
+    }
+    Serial.println("TEMP SET");
+    delay(3000);
+  //Allowing user to set intial humidity according to joystick motion.
+  while(set2 == false) {
+      Serial.print("Set Humidity: ");
+      Serial.println(setHumid);
+      int setter = analogRead(swi);
+      int humidCon =analogRead(H);
+      if(humidCon < 400) {
+        setHumid--;
+      }
+      else if(humidCon > 700) {
+        setHumid++;
+      }
+      if(setter == 0) {
+        set2 = true;
+      }
+      delay(500);
+    }
+    Serial.println("HUMIDITY SET");
+    delay(3000);
+}
+
+void loop() {
+  //Takes intial temperature and humidity readings
+  tempC = dht.readTemperature();
+  tempF = tempC * 1.8 + 32;
+  humid = dht.readHumidity();
+  Serial.print("Temperature is: ");
+  Serial.print(tempF);
+  Serial.println(" F");
+  Serial.print("Humidity is: ");
+  Serial.print(humid);
+  Serial.println(" %");
+  //Checks for if temperature is above the desired temperature plus 2 degrees allowing for a great margin
+  //Can go for a smaller margin but this allows for less strain on the fridge compressor due to short-cycling
+  if(tempF > setTemp + 2) {
+    Serial.println("Cooling");
+    digitalWrite(2, HIGH);
+    //For loop allows for the humidity to be checked more frequently than the fridge temperatures
+    //For compressor efficacy reasons the minimum on or off time for the fridge is set to 10 minutes
+    //This loop checks the temperature and humidity every second, but forces the humidifier to run for 2.5 minute minimums to
+    //protect the humidifier lifespan
+    //Numbers are subject to fine tuning after further testing
+    for (int i=1;i <= 600000; i++) {
+      int timer = 0;
+      tempC = dht.readTemperature();
+      tempF = tempC * 1.8 + 32;
+      humid = dht.readHumidity();
+      Serial.print("Temperature is: ");
+      Serial.print(tempF);
+      Serial.println(" F");
+      Serial.print("Humidity is: ");
+      Serial.print(humid);
+      Serial.println(" %");
+      if(i < 450000) {
+        if(humid < setHumid && timer <= i) {
+          digitalWrite(3, HIGH);
+          timer = i + 150000;
+        }
+      }
+      if(i == timer) {
+        if(humid >= setHumid) {
+          digitalWrite(3, LOW);
+        }
+      }
+      delay(1000);
+    }
+    }
+  else if(tempF <= setTemp) {
+    digitalWrite(2,LOW);
+    Serial.println("At or Below Temperature");
+    for (int i=1;i <= 600000; i++) {
+      int timer = 0;
+      tempC = dht.readTemperature();
+      tempF = tempC * 1.8 + 32;
+      humid = dht.readHumidity();
+      Serial.print("Temperature is: ");
+      Serial.print(tempF);
+      Serial.println(" F");
+      Serial.print("Humidity is: ");
+      Serial.print(humid);
+      Serial.println(" %");
+      if(i < 450000) {
+        if(humid < setHumid && timer <= i) {
+          digitalWrite(3, HIGH);
+          timer = i + 150000;
+        }
+      }
+      if(i == timer) {
+        if(humid >= setHumid) {
+          digitalWrite(3, LOW);
+        }
+      }
+      delay(1000);
+    }
+    }
+
+  }
